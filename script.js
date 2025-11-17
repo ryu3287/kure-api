@@ -5,6 +5,10 @@ let charts = {
   priceComparison: null,
   distribution: null,
 };
+let currentSort = {
+  column: null,
+  ascending: true,
+};
 
 // アクセストークンの表示/非表示切り替え
 function toggleTokenVisibility() {
@@ -371,28 +375,148 @@ function updateTable(data) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
+  const rows = [];
   data.医薬品リスト.forEach((item) => {
     const originalDrug = item.先発品医薬品;
     const originalPrice = parseFloat(originalDrug.薬価);
 
     item.後発品医薬品.forEach((generic) => {
-      const row = tbody.insertRow();
-
       const genericPrice = parseFloat(generic.薬価);
       const priceDiff = originalPrice - genericPrice;
 
-      row.insertCell(0).textContent = originalDrug.医薬品名;
-      row.insertCell(1).textContent = "¥" + originalPrice.toFixed(2);
-      row.insertCell(2).textContent = generic.医薬品名;
-      row.insertCell(3).textContent = "¥" + genericPrice.toFixed(2);
-      row.insertCell(4).textContent = parseFloat(generic.数量).toLocaleString();
-      row.insertCell(5).textContent = generic.単位;
-
-      const diffCell = row.insertCell(6);
-      diffCell.textContent = "¥" + priceDiff.toFixed(2);
-      diffCell.className =
-        priceDiff > 0 ? "price-diff-positive" : "price-diff-negative";
+      rows.push({
+        originalName: originalDrug.医薬品名,
+        originalPrice: originalPrice,
+        genericName: generic.医薬品名,
+        genericPrice: genericPrice,
+        quantity: parseFloat(generic.数量),
+        unit: generic.単位,
+        priceDiff: priceDiff,
+      });
     });
+  });
+
+  // ソート処理
+  if (currentSort.column !== null) {
+    sortTableRows(rows, currentSort.column, currentSort.ascending);
+  }
+
+  // テーブルに行を追加
+  rows.forEach((rowData) => {
+    const row = tbody.insertRow();
+
+    row.insertCell(0).textContent = rowData.originalName;
+    row.insertCell(1).textContent = "¥" + rowData.originalPrice.toFixed(2);
+    row.insertCell(2).textContent = rowData.genericName;
+    row.insertCell(3).textContent = "¥" + rowData.genericPrice.toFixed(2);
+    row.insertCell(4).textContent = rowData.quantity.toLocaleString();
+    row.insertCell(5).textContent = rowData.unit;
+
+    const diffCell = row.insertCell(6);
+    diffCell.textContent = "¥" + rowData.priceDiff.toFixed(2);
+    diffCell.className =
+      rowData.priceDiff > 0 ? "price-diff-positive" : "price-diff-negative";
+  });
+
+  // ヘッダーにクリックイベントを追加
+  addHeaderClickListeners();
+}
+
+// テーブルヘッダーのクリックイベント追加
+function addHeaderClickListeners() {
+  const headers = document.querySelectorAll("thead th");
+  headers.forEach((header, index) => {
+    header.style.cursor = "pointer";
+    header.addEventListener("click", () => {
+      handleHeaderClick(index);
+    });
+  });
+}
+
+// ヘッダークリック時の処理
+function handleHeaderClick(columnIndex) {
+  if (currentSort.column === columnIndex) {
+    currentSort.ascending = !currentSort.ascending;
+  } else {
+    currentSort.column = columnIndex;
+    currentSort.ascending = true;
+  }
+
+  // テーブルを再描画
+  const tbody = document.getElementById("tableBody");
+  const rows = Array.from(tbody.querySelectorAll("tr")).map((tr) => {
+    const cells = tr.querySelectorAll("td");
+    return {
+      originalName: cells[0].textContent,
+      originalPrice: parseFloat(cells[1].textContent.replace("¥", "")),
+      genericName: cells[2].textContent,
+      genericPrice: parseFloat(cells[3].textContent.replace("¥", "")),
+      quantity: parseFloat(cells[4].textContent.replace(/,/g, "")),
+      unit: cells[5].textContent,
+      priceDiff: parseFloat(cells[6].textContent.replace("¥", "")),
+    };
+  });
+
+  sortTableRows(rows, columnIndex, currentSort.ascending);
+
+  tbody.innerHTML = "";
+  rows.forEach((rowData) => {
+    const row = tbody.insertRow();
+
+    row.insertCell(0).textContent = rowData.originalName;
+    row.insertCell(1).textContent = "¥" + rowData.originalPrice.toFixed(2);
+    row.insertCell(2).textContent = rowData.genericName;
+    row.insertCell(3).textContent = "¥" + rowData.genericPrice.toFixed(2);
+    row.insertCell(4).textContent = rowData.quantity.toLocaleString();
+    row.insertCell(5).textContent = rowData.unit;
+
+    const diffCell = row.insertCell(6);
+    diffCell.textContent = "¥" + rowData.priceDiff.toFixed(2);
+    diffCell.className =
+      rowData.priceDiff > 0 ? "price-diff-positive" : "price-diff-negative";
+  });
+
+  updateHeaderIndicator(columnIndex);
+}
+
+// テーブル行のソート
+function sortTableRows(rows, columnIndex, ascending) {
+  const columnMap = {
+    0: "originalName",
+    1: "originalPrice",
+    2: "genericName",
+    3: "genericPrice",
+    4: "quantity",
+    5: "unit",
+    6: "priceDiff",
+  };
+
+  const sortKey = columnMap[columnIndex];
+
+  rows.sort((a, b) => {
+    let aVal = a[sortKey];
+    let bVal = b[sortKey];
+
+    if (typeof aVal === "string") {
+      aVal = aVal.toLowerCase();
+      bVal = bVal.toLowerCase();
+      return ascending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    } else {
+      return ascending ? aVal - bVal : bVal - aVal;
+    }
+  });
+}
+
+// ヘッダーにソート表示を追加
+function updateHeaderIndicator(columnIndex) {
+  const headers = document.querySelectorAll("thead th");
+  headers.forEach((header, index) => {
+    if (index === columnIndex) {
+      header.textContent = header.textContent.replace(" ↑", "").replace(" ↓", "");
+      header.textContent += currentSort.ascending ? " ↑" : " ↓";
+    } else {
+      header.textContent = header.textContent.replace(" ↑", "").replace(" ↓", "");
+    }
   });
 }
 

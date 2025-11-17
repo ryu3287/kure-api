@@ -244,6 +244,13 @@ thead th {
     text-align: left;
     font-weight: 600;
     font-size: 0.9em;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+thead th:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #6b3a91 100%);
 }
 
 tbody tr {
